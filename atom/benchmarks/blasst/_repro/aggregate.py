@@ -8,7 +8,17 @@ import csv, glob, os, sys
 
 out = sys.argv[1] if len(sys.argv) > 1 else "_repro_results/ruler_13x50"
 files = sorted(glob.glob(os.path.join(out, "*.csv")))
-rows = [r for f in files for r in csv.DictReader(open(f))]
+
+# The bench writes one csv per task and keys rows by `case` (which carries the
+# prompt/layer, not the task). The task is the file stem -- run_ruler_sweep.sh
+# writes `<task>.csv`. Tag each row with it here so the per-task breakdown and
+# the task count work without the bench having to repeat the task on every row.
+rows = []
+for f in files:
+    task = os.path.splitext(os.path.basename(f))[0]
+    for r in csv.DictReader(open(f)):
+        r["task"] = task
+        rows.append(r)
 if not rows:
     sys.exit(f"no csv rows under {out}")
 

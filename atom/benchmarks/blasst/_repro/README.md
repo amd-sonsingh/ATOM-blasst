@@ -20,23 +20,43 @@ calls into these; this file is the inventory.
 | `run_random.sh` | threshold sweep on random inputs, no model needed |
 | `aggregate.py` | reduces the RULER sweep to the headline figure |
 | `server_probe.py` | one long-context request through a running server |
-| `run_ruler_sweep.sh` | the 13 x 50 headline sweep |
-| `gen_ruler_data.sh` | generates the RULER tasks |
+| `run_ruler_sweep.sh` | the headline sweep: 13 tasks x `SAMPLES` prompts (default 50) |
+| `gen_ruler_data.sh` | generates the 13 RULER tasks (clones RULER, fetches its corpora) |
 
 ## Order
 
-```bash
-bash _repro/docker/build.sh                    # ~15 min, Triton from source
-bash _repro/shell.sh                           # container, with ATOM installed
-bash _repro/verify.sh                          # confirms the pinned environment
-bash _repro/run_random.sh                      # no model or dataset needed
+Run everything from the **ATOM root** -- the directory that holds `atom/` -- so
+the paths below resolve and `shell.sh` can mount the tree. `R` is just a
+shorthand for the bundle path from there.
 
-MODEL=<qwen3-8b> OUT=<dir> bash _repro/gen_ruler_data.sh      # once, on the host
-RULER_ROOT=<dir>/ctx_32768 MODEL=<qwen3-8b> \
-  bash _repro/run_ruler_sweep.sh                              # ~2.5 h, resumable
+```bash
+R=atom/benchmarks/blasst/_repro
+
+# --- on the host ---
+bash $R/docker/build.sh                        # ~15 min, Triton from source
+
+# --- inside the container, started by shell.sh ---
+# MODELS is mounted read-only at /models; needed for data gen and the ruler sweep.
+MODELS=<qwen3-8b-parent-dir> bash $R/shell.sh          # drops you into the container
+#   then, from /workspace (the mounted ATOM root):
+bash $R/verify.sh                              # confirms the pinned environment
+bash $R/run_random.sh                          # no model or dataset needed
+
+# RULER data, once (ruler mode only). Run it in the container: it needs
+# transformers (for the tokenizer) plus the light deps it installs itself.
+# Needs network -- clones NVIDIA/RULER and downloads its corpora (PaulGraham
+# essays, SQuAD, HotpotQA ~60 MB, git-LFS english_words.json). A few minutes.
+MODEL=/models/<snapshot_hash> OUT=/workspace/ruler [N=<n>] bash $R/gen_ruler_data.sh   # N=<n> samples/task
+
+RULER_ROOT=/workspace/ruler/ctx_32768 MODEL=/models/<snapshot_hash> \
+  [SAMPLES=<n>] bash $R/run_ruler_sweep.sh             # headline sweep; SAMPLES=2 for a smoke test
 ```
 
-`run_ruler_sweep.sh` calls `aggregate.py` when it finishes; run it directly
+`shell.sh` takes a one-shot command too: `bash $R/shell.sh <cmd>` runs `<cmd>`
+in the container and exits, which is how CI and the sweep run unattended.
+
+`run_ruler_sweep.sh` defaults to all 13 tasks x 50 prompts; set `SAMPLES=<n>`
+for fewer prompts. It calls `aggregate.py` when it finishes -- run that directly
 against the output directory to re-print the summary.
 
 ## Re-pinning

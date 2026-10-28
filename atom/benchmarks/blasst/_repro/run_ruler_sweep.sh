@@ -1,8 +1,10 @@
 #!/bin/bash
-# The headline sweep: 13 RULER tasks x 50 prompts x 36 layers at the calibrated
-# threshold. ~2.5 h on one MI355X. Inside the container, from /workspace.
+# The headline sweep: 13 RULER tasks x SAMPLES prompts x all layers at the
+# calibrated threshold. SAMPLES defaults to 50 (~2.5 h on one MI355X); set it
+# lower for a smoke test. Inside the container, from /workspace.
 #
-#   RULER_ROOT=/ruler/ctx_32768 MODEL=/models/Qwen3-8B bash .../run_ruler_sweep.sh
+#   RULER_ROOT=/ruler/ctx_32768 MODEL=/models/<snapshot> bash .../run_ruler_sweep.sh
+#   SAMPLES=2 RULER_ROOT=... MODEL=... bash .../run_ruler_sweep.sh   # quick check
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 set -a; . "$HERE/pins.env"; set +a
